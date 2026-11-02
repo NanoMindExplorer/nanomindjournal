@@ -18,6 +18,9 @@ import os, sys, time, requests
 
 TG = os.environ["TG_TOKEN"]
 DC = os.environ["DC_WEBHOOK"]
+# jeda minimum antar pesan ke Discord (detik) — mencegah flood jika
+# backlog/channel tiba-tiba sibuk. 0 = kirim bersambung tanpa jeda.
+MIN_DELAY = int(os.environ.get("DISCORD_MIN_DELAY", "60"))
 API_GET = f"https://api.telegram.org/bot{TG}/getUpdates"
 
 OFFSET = 0          # 0 = Telegram returns everything still pending
@@ -26,6 +29,7 @@ POSTED = 0
 
 def send(text):
     """Post to Discord; True only when Discord accepted it."""
+    global POSTED
     for attempt in range(3):
         try:
             r = requests.post(DC, json={"content": text[:2000]}, timeout=30)
@@ -35,6 +39,8 @@ def send(text):
             continue
         if r.status_code in (200, 204):
             POSTED += 1
+            if MIN_DELAY:
+                time.sleep(MIN_DELAY)   # jeda antar pesan
             return True
         if r.status_code == 429:
             wait = r.json().get("retry_after", 3) + 1
